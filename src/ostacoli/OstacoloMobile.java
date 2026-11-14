@@ -2,6 +2,7 @@
 // Consegna 4: gli ostacoli. Scadenza: domenica 15 novembre 2026.
 package ostacoli;
 
+import geometria.Posizione;
 import geometria.Rettangolo;
 import java.awt.Color;
 
@@ -18,6 +19,10 @@ public class OstacoloMobile implements Ostacolo {
 
     private Rettangolo area;   // non è final: l'ostacolo si muove
     // scrivete qui gli altri campi che vi servono
+    private final double velocita;
+    private final double limiteAlto;
+    private final double limiteBasso;
+    private boolean versoSu; 
 
     /**
      * Pretende: area non è null; velocita è maggiore di 0; l'area sta fra i due limiti
@@ -26,7 +31,10 @@ public class OstacoloMobile implements Ostacolo {
      */
     public OstacoloMobile(Rettangolo area, double velocita, double limiteAlto, double limiteBasso) {
         this.area = area;
-        // scrivete qui
+        this.velocita = velocita;
+        this.limiteAlto = limiteAlto;
+        this.limiteBasso = limiteBasso;
+        this.versoSu = false;
     }
 
     @Override
@@ -35,7 +43,7 @@ public class OstacoloMobile implements Ostacolo {
     /** Non si rompe mai: il colpo non cambia niente (né dove sta, né come si muove). */
     @Override
     public void colpisci(Ostacoli campo) {
-        // scrivete qui
+        return;
     }
 
     @Override
@@ -46,7 +54,7 @@ public class OstacoloMobile implements Ostacolo {
     /** Promette: COLORE. */
     @Override
     public Color getColore() {
-        return null; // scrivete qui
+        return COLORE; // scrivete qui
     }
 
     /**
@@ -58,6 +66,20 @@ public class OstacoloMobile implements Ostacolo {
      */
     @Override
     public void avanza() {
-        // scrivete qui
+        if(!versoSu){
+            if(area.y() + area.altezza() + velocita < limiteBasso) 
+                area = new Rettangolo(area.x(), area.y() + velocita, area.larghezza(), area.altezza());
+            else{
+                area = new Rettangolo(area.x(), limiteBasso - area.altezza(), area.larghezza(), area.altezza());
+                versoSu = true;
+            }
+        }else{
+            if(area.y() - velocita > limiteAlto) 
+                area = new Rettangolo(area.x(), area.y() - velocita, area.larghezza(), area.altezza());
+            else{
+                area = new Rettangolo(area.x(), limiteAlto, area.larghezza(), area.altezza());
+                versoSu = false;
+            }   
+        }
     }
 }
