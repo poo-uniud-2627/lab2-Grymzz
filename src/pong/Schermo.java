@@ -16,11 +16,12 @@ import javax.swing.JPanel;
 import javax.swing.Timer;
 import ostacoli.MotoreDeiLivelli;
 import ostacoli.Ostacolo;
+import stelle.Raccolta;
+import stelle.Stella;
 
 /**
  * Mostra la partita: sessanta volte al secondo la fa avanzare di un passo e la ridisegna.
- * Prima di cominciare legge i tasti da 1 a 5 (il livello) e SPAZIO (via!).
- * Non prende nessuna decisione di gioco (quelle sono della Partita e del motore dei livelli).
+ * Prima di cominciare legge SPAZIO (via!).
  */
 class Schermo extends JPanel {
     private final Partita partita;
@@ -51,13 +52,10 @@ class Schermo extends JPanel {
 
     private void passo() {
         if (!partita.isInCorso()) {
-            for (int numero = 1; numero <= MotoreDeiLivelli.NUMERO_LIVELLI; numero++) {
-                // il tasto del numero, sopra le lettere o nel tastierino numerico
-                if (tastiera.premuto(KeyEvent.VK_0 + numero) || tastiera.premuto(KeyEvent.VK_NUMPAD0 + numero)) {
-                    partita.preparaLivello(numero);
-                }
+            // I tasti da 1 a 5 non servono più: si usa solo SPAZIO per iniziare o proseguire
+            if (tastiera.premuto(KeyEvent.VK_SPACE)) {
+                partita.avvia();
             }
-            if (tastiera.premuto(KeyEvent.VK_SPACE)) partita.avvia();
         }
         partita.aggiorna();
         repaint();
@@ -70,8 +68,7 @@ class Schermo extends JPanel {
     }
 
     /**
-     * Disegna la partita su g2. È a parte, e static, perché si possa usare anche senza finestra:
-     * la simulazione del docente la usa per disegnare il campo su un'immagine.
+     * Disegna la partita su g2.
      */
     static void disegna(Graphics2D g2, Partita partita) {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -85,7 +82,7 @@ class Schermo extends JPanel {
         g2.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1, new float[]{10, 10}, 0));
         g2.drawLine(larghezza / 2, 0, larghezza / 2, altezza);
 
-        // Lo schermo non sa di che tipo è ogni ostacolo: chiede a ciascuno se è rotto e di che colore è.
+        // Ostacoli
         for (Ostacolo o : partita.getOstacoli().getOstacoli()) {
             if (!o.isRotto()) {
                 g2.setColor(o.getColore());
@@ -93,6 +90,16 @@ class Schermo extends JPanel {
             }
         }
 
+        // Stella (se presente e visibile)
+        Stella stella = partita.getStella();
+        if (stella != null && stella.isVisibile()) {
+            g2.setColor(Color.YELLOW);
+            Rettangolo s = stella.getArea();
+            g2.fillOval((int) Math.round(s.x()), (int) Math.round(s.y()),
+                    (int) Math.round(s.larghezza()), (int) Math.round(s.altezza()));
+        }
+
+        // Racchette e palla
         g2.setColor(Color.WHITE);
         disegna(g2, partita.getRacchettaSinistra());
         disegna(g2, partita.getRacchettaDestra());
@@ -101,21 +108,43 @@ class Schermo extends JPanel {
         Posizione p = palla.getPosizione();
         g2.fillOval((int) Math.round(p.x() - r), (int) Math.round(p.y() - r), 2 * r, 2 * r);
 
+        // Punteggio in alto
         g2.setFont(new Font(Font.MONOSPACED, Font.BOLD, 48));
         g2.drawString(String.valueOf(partita.getPunti(Lato.SINISTRA)), larghezza / 2 - 80, 60);
         g2.drawString(String.valueOf(partita.getPunti(Lato.DESTRA)), larghezza / 2 + 50, 60);
 
+        // Barra di stato in basso: Vite, Livello e Stelle
         g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 18));
-        scriviAlCentro(g2, "Livello " + partita.getLivello().numero(), larghezza, altezza - 20);
+        g2.setColor(Color.LIGHT_GRAY);
+        g2.drawString("Vite: " + partita.getVite(), 25, altezza - 20);
+        scriviAlCentro(g2, "Livello " + partita.getLivello().numero() + " / " + MotoreDeiLivelli.NUMERO_LIVELLI, larghezza, altezza - 20);
+        String testoStelle = "Stelle: " + partita.getStelle() + "/" + Raccolta.STELLE_PER_UNA_VITA;
+        g2.drawString(testoStelle, larghezza - g2.getFontMetrics().stringWidth(testoStelle) - 25, altezza - 20);
 
+        // Messaggi quando la partita è ferma
         if (!partita.isInCorso()) {
-            g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 22));
-            if (partita.getVincitore() == Lato.SINISTRA) {
-                scriviAlCentro(g2, "Hai vinto!", larghezza, altezza / 2 - 40);
+            g2.setColor(Color.WHITE);
+            g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 22));
+            if (partita.isCompletato()) {
+                scriviAlCentro(g2, "Complimenti! Hai completato tutti i livelli!", larghezza, altezza / 2 - 40);
+                g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
+                scriviAlCentro(g2, "Premi SPAZIO per ricominciare da capo", larghezza, altezza / 2 + 60);
+            } else if (partita.isFinito()) {
+                scriviAlCentro(g2, "Game Over! Hai esaurito le vite.", larghezza, altezza / 2 - 40);
+                g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
+                scriviAlCentro(g2, "Premi SPAZIO per ricominciare da capo", larghezza, altezza / 2 + 60);
+            } else if (partita.getVincitore() == Lato.SINISTRA) {
+                scriviAlCentro(g2, "Livello superato!", larghezza, altezza / 2 - 40);
+                g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
+                scriviAlCentro(g2, "Premi SPAZIO per passare al livello successivo", larghezza, altezza / 2 + 60);
             } else if (partita.getVincitore() == Lato.DESTRA) {
-                scriviAlCentro(g2, "Ha vinto il computer.", larghezza, altezza / 2 - 40);
+                scriviAlCentro(g2, "Hai perso il livello (-1 vita).", larghezza, altezza / 2 - 40);
+                g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
+                scriviAlCentro(g2, "Premi SPAZIO per riprovare il livello", larghezza, altezza / 2 + 60);
+            } else {
+                g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
+                scriviAlCentro(g2, "Premi SPAZIO per cominciare", larghezza, altezza / 2 + 60);
             }
-            scriviAlCentro(g2, "Premi un tasto da 1 a 5 per scegliere il livello, poi SPAZIO", larghezza, altezza / 2 + 60);
         }
     }
 

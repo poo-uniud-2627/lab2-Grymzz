@@ -10,28 +10,41 @@ import geometria.Rettangolo;
  * La palla non la vede: ci passa attraverso.
  */
 public class Stella {
+    private Rettangolo area;
+    private boolean visibile;
+    private boolean raccolto;
+    private int durata;
     /**
      * Una stella nuova, visibile, nell'area data, che resta visibile per durata fotogrammi
      * (60 fotogrammi sono un secondo).
      * Lancia IllegalArgumentException se area è null o se durata è minore di 1.
      */
     public Stella(Rettangolo area, int durata) {
-        throw new UnsupportedOperationException("da scrivere");
+        if(area == null){
+            throw new  IllegalArgumentException("area non deve essere null");
+        }
+
+        if(durata < 1) {
+            throw new IllegalArgumentException("durata deve essere almeno 1");
+        }
+        this.area = area;
+        this.durata = durata;
+        this.visibile = true;
     }
 
     /** Dove sta la stella. Promette: non è null e non cambia mai. */
     public Rettangolo getArea() {
-        throw new UnsupportedOperationException("da scrivere");
+        return this.area;
     }
 
     /** Vero se si vede: non è stata raccolta e il suo tempo non è finito. */
     public boolean isVisibile() {
-        throw new UnsupportedOperationException("da scrivere");
+            return this.visibile;
     }
 
     /** Vero se è stata raccolta. */
     public boolean isRaccolta() {
-        throw new UnsupportedOperationException("da scrivere");
+        return this.raccolto;
     }
 
     /**
@@ -39,7 +52,15 @@ public class Stella {
      * su una stella raccolta o sparita non cambia niente.
      */
     public void avanza() {
-        throw new UnsupportedOperationException("da scrivere");
+        if (!isVisibile() || isRaccolta()) {
+            return;
+        }
+        
+        this.durata--;
+        if (this.durata == 0) {
+            this.visibile = false;
+        }
+        
     }
 
     /**
@@ -48,6 +69,11 @@ public class Stella {
      * Lancia IllegalStateException se la stella non è visibile (già raccolta, o sparita), e non cambia niente.
      */
     public void raccogli() {
-        throw new UnsupportedOperationException("da scrivere");
+        if (!isVisibile()) {
+            throw new IllegalStateException ("la stella è già raccolta o sparita");
+        } else {
+            this.visibile = false;
+            this.raccolto = true;
+        }
     }
 }

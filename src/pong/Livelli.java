@@ -8,6 +8,14 @@ package pong;
  * Si vince un livello vincendo una partita; perdendo una partita si perde una vita.
  */
 public class Livelli {
+
+    private final int numeroLivelli;
+    private final int vite;
+    private final Lato umano;
+    private int livelloCorrente;
+    private int viteRimaste;
+    private boolean completato;
+    private boolean perso;
     /**
      * Un gioco nuovo.
      * Pretende: niente.
@@ -15,41 +23,53 @@ public class Livelli {
      * Lancia IllegalArgumentException se numeroLivelli o vite è minore di 1, o se umano è null.
      */
     public Livelli(int numeroLivelli, int vite, Lato umano) {
-        throw new UnsupportedOperationException("da scrivere");
+         if (numeroLivelli < 1) {
+            throw new IllegalArgumentException("numeroLivelli < 1");
+        }  else if (vite < 1) {
+            throw new IllegalArgumentException("vite < 1");
+        } else if (umano == null) {
+            throw new IllegalArgumentException("umano non può essere null");
+        }
+
+        this.numeroLivelli = numeroLivelli;
+        this.vite = vite;
+        this.umano = umano;
+        this.livelloCorrente = 1;
+        this.viteRimaste = vite;
     }
 
     /** Il livello a cui si gioca, fra 1 e getNumeroLivelli(). */
     public int getLivello() {
-        throw new UnsupportedOperationException("da scrivere");
+        return this.livelloCorrente;
     }
 
     public int getNumeroLivelli() {
-        throw new UnsupportedOperationException("da scrivere");
+        return this.numeroLivelli;
     }
 
     /** Le vite che restano, fra 0 e quelle iniziali. */
     public int getVite() {
-        throw new UnsupportedOperationException("da scrivere");
+        return this.viteRimaste;
     }
 
     /** Il lato su cui gioca la persona (l'altro è il giocatore automatico). */
     public Lato getUmano() {
-        throw new UnsupportedOperationException("da scrivere");
+        return this.umano;
     }
 
     /** Vero se è stato vinto l'ultimo livello. */
     public boolean isCompletato() {
-        throw new UnsupportedOperationException("da scrivere");
+        return this.completato;
     }
 
     /** Vero se le vite sono finite. */
     public boolean isPerso() {
-        throw new UnsupportedOperationException("da scrivere");
+        return this.perso;
     }
 
     /** Vero se il gioco è completato o perso. */
     public boolean isFinito() {
-        throw new UnsupportedOperationException("da scrivere");
+        return isCompletato() || isPerso();
     }
 
     /**
@@ -63,8 +83,26 @@ public class Livelli {
      * Lancia IllegalArgumentException se vincitore è null, e non cambia niente.
      */
     public void partitaFinita(Lato vincitore) {
-        throw new UnsupportedOperationException("da scrivere");
+        if (vincitore == null) {
+            throw new  IllegalArgumentException("vincitore non può essere null");
+        }
+        if (isFinito()) {
+            return;
+        }   
+    if (vincitore == this.umano) {
+        if (this.livelloCorrente == this.numeroLivelli) {
+            this.completato = true;
+        } else {
+            this.livelloCorrente++;
+        }
+    } 
+    else {
+        this.viteRimaste--;
+        if (this.viteRimaste == 0) {
+            this.perso = true;
+        }
     }
+}
 
     /**
      * Si ricomincia da capo.
@@ -72,7 +110,10 @@ public class Livelli {
      * Promette: livello 1, con tutte le vite; il gioco non è completato né perso.
      */
     public void ricomincia() {
-        throw new UnsupportedOperationException("da scrivere");
+        this.livelloCorrente = 1;
+        this.viteRimaste = this.vite;
+        this.completato = false;
+        this.perso = false;
     }
 
     /**
@@ -82,6 +123,14 @@ public class Livelli {
      *           ma mai più delle vite iniziali: con tutte le vite, non cambia niente. Il livello non cambia.
      */
     public void guadagnaVita() {
-        throw new UnsupportedOperationException("da scrivere");
+        if (isFinito()) {
+            return ;
+        } else {
+            if (this.viteRimaste == this.vite) {
+                return;
+            } else{
+                this.viteRimaste++;
+            }
+        }
     }
 }

@@ -1,21 +1,25 @@
 // Pong — Programmazione Orientata agli Oggetti e Laboratori, Udine, a.a. 2026-27
 package pong;
 
+import geometria.Rettangolo;
 import giocatori.GiocatoreAutomatico;
 import java.util.Random;
 import ostacoli.Livello;
 import ostacoli.MotoreDeiLivelli;
 import ostacoli.Ostacoli;
 import ostacoli.Ostacolo;
+import stelle.Raccolta;
+import stelle.Stella;
 
 /**
- * Una partita a un livello: voi a sinistra, il giocatore automatico a destra, due racchette,
- * una palla, gli ostacoli del livello e i conti di chi vince. Il livello si sceglie prima di cominciare.
+ * Una partita a livelli: voi a sinistra, il giocatore automatico a destra, due racchette,
+ * una palla, gli ostacoli del livello, le stelle e i conti di vite e livelli.
  */
 class Partita {
     /** Si gioca a 5, con almeno due punti di scarto (5 a 4 non basta, 6 a 4 sì). */
     static final int PUNTI_PER_VINCERE = 5;
     static final int SCARTO_MINIMO = 2;
+    static final int VITE_INIZIALI = 3;
 
     private final Campo campo;
     private final Giocatore giocatoreSinistra;
@@ -24,9 +28,15 @@ class Partita {
     private final Racchetta racchettaDestra;
     private final Palla palla;
     private final Punteggio punteggio = new Punteggio(PUNTI_PER_VINCERE, SCARTO_MINIMO);
+    private final Livelli livelli = new Livelli(MotoreDeiLivelli.NUMERO_LIVELLI, VITE_INIZIALI, Lato.SINISTRA);
+    private final Raccolta raccolta = new Raccolta(Raccolta.STELLE_PER_UNA_VITA);
+    private final Random random = new Random();
+
     private Livello livello;
     private Ostacoli ostacoli;
     private boolean iniziata;
+    private Stella stella;
+    private boolean esitoRegistrato;
 
     /** Una partita fra umano, a sinistra, e il giocatore automatico, a destra; si comincia dal livello 1. */
     Partita(Campo campo, Giocatore umano) {
@@ -36,13 +46,12 @@ class Partita {
         this.racchettaSinistra = new Racchetta(30, centroY);
         this.racchettaDestra = new Racchetta(campo.getLarghezza() - 30 - Racchetta.LARGHEZZA, centroY);
         this.palla = new Palla(campo.getLarghezza() / 2.0, campo.getAltezza() / 2.0);
-        preparaLivello(1);
+        preparaLivello(livelli.getLivello());
     }
 
     /**
      * Prepara il livello numero: chiede al motore dei livelli ostacoli nuovi, velocità della palla ed
      * errore del giocatore automatico; rimette i punti a zero e la palla ferma al centro.
-     * Pretende: la partita non è in corso; numero è fra 1 e MotoreDeiLivelli.NUMERO_LIVELLI.
      */
     void preparaLivello(int numero) {
         livello = MotoreDeiLivelli.livello(numero, campo.getLarghezza(), campo.getAltezza());
@@ -50,35 +59,44 @@ class Partita {
         giocatoreDestra = new GiocatoreAutomatico(livello.erroreMassimo());
         punteggio.azzera();
         iniziata = false;
+        esitoRegistrato = false;
+        stella = null;
         palla.fermaIn(campo.getLarghezza() / 2.0, campo.getAltezza() / 2.0);
     }
 
-    // Quello che lo Schermo può chiedere: solo leggere. Il Punteggio resta qui dentro.
+    // ---- Metodi di lettura per lo Schermo
 
-    /** I punti del lato chi. */
     int getPunti(Lato chi) { return punteggio.getPunti(chi); }
-
-    /** Chi ha vinto; null se la partita non è finita. */
     Lato getVincitore() { return punteggio.getVincitore(); }
-
-    /** Vero se si sta giocando: la partita è cominciata e non è finita. */
-    boolean isInCorso() { return iniziata && !punteggio.isFinita(); }
-
-    /** Vero se la partita è cominciata (anche se poi è finita). */
+    boolean isInCorso() { return iniziata && !punteggio.isFinita() && !livelli.isFinito(); }
     boolean isIniziata() { return iniziata; }
-
     Livello getLivello() { return livello; }
     Ostacoli getOstacoli() { return ostacoli; }
+    int getVite() { return livelli.getVite(); }
+    int getStelle() { return raccolta.getStelle(); }
+    boolean isFinito() { return livelli.isFinito(); }
+    boolean isCompletato() { return livelli.isCompletato(); }
+    Stella getStella() { return stella; }
 
     /**
-     * Fa cominciare la partita e lancia la palla. Se una partita era già stata giocata, prima
-     * prepara di nuovo lo stesso livello (ostacoli nuovi, punti a zero).
-     * Pretende: la partita non è in corso.
+     * Fa cominciare la partita e lancia la palla.
+     * Se il gioco intero era finito (vinto o perso), ricomincia dal livello 1 con 3 vite.
+     * Altrimenti prepara il livello corrente indicato da Livelli (quello successivo se si è vinto,
+     * oppure lo stesso se si è perso ma restano vite).
      */
     void avvia() {
-        if (iniziata) preparaLivello(livello.numero());
+        if (livelli.isFinito()) {
+            livelli.ricomincia();
+            // Svuota eventuali stelle residue dell'ultima partita
+            while (raccolta.getStelle() > 0) {
+                raccolta.aggiungi();
+            }
+            preparaLivello(livelli.getLivello());
+        } else if (iniziata) {
+            preparaLivello(livelli.getLivello());
+        }
         iniziata = true;
-        lanciaPalla(new Random().nextBoolean());
+        lanciaPalla(random.nextBoolean());
     }
 
     /** Lancia la palla dal centro, alla velocità del livello. */
@@ -91,18 +109,61 @@ class Partita {
         if (!isInCorso()) return;
         ostacoli.avanzaTutti();
         muoviRacchette();
+        aggiornaStella();
         palla.muovi();
         controllaRimbalzi();
         controllaOstacoli();
         controllaPunto();
     }
 
-    /** Chiede a ciascun giocatore cosa vuole fare, e lo fa. Non sa chi sono i giocatori. */
     private void muoviRacchette() {
         Mossa mossaSinistra = giocatoreSinistra.decidiMossa(palla, racchettaSinistra);
         Mossa mossaDestra = giocatoreDestra.decidiMossa(palla, racchettaDestra);
         racchettaSinistra.muovi(mossaSinistra, campo);
         racchettaDestra.muovi(mossaDestra, campo);
+    }
+
+    private void aggiornaStella() {
+        // Se non c'è una stella visibile, ogni tanto ne crea una nella corsia della racchetta sinistra.
+        if (stella == null || !stella.isVisibile()) {
+            if (random.nextInt(400) == 0) {
+                int dimensione = racchettaSinistra.getLarghezza();
+                int x = racchettaSinistra.getX();
+                int y = random.nextInt(campo.getAltezza() - dimensione);
+                stella = new Stella(
+                        new Rettangolo(x, y, dimensione, dimensione),
+                        livello.durataStella()
+                );
+            }
+            return;
+        }
+
+        // Costruisce l'area attuale della racchetta sinistra.
+        Rettangolo areaRacchetta = new Rettangolo(
+                racchettaSinistra.getX(),
+                racchettaSinistra.getY(),
+                racchettaSinistra.getLarghezza(),
+                racchettaSinistra.getAltezza()
+        );
+
+        // Controlla se la racchetta tocca la stella.
+        if (areaRacchetta.tocca(stella.getArea())) {
+            stella.raccogli();
+            // Ogni 5 stelle si guadagna una vita.
+            if (raccolta.aggiungi()) {
+                livelli.guadagnaVita();
+            }
+        } else {
+            // La stella perde un fotogramma di durata.
+            stella.avanza();
+        }
+    }
+
+    private void registraRisultato() {
+        if (punteggio.isFinita() && !esitoRegistrato) {
+            livelli.partitaFinita(punteggio.getVincitore());
+            esitoRegistrato = true;
+        }
     }
 
     private void controllaRimbalzi() {
@@ -115,10 +176,6 @@ class Partita {
         if (palla.tocca(racchettaDestra) && palla.getVelocitaX() > 0) palla.rimbalzaSu(racchettaDestra);
     }
 
-    /**
-     * Se la palla tocca un ostacolo non rotto, rimbalza e l'ostacolo viene colpito (un ostacolo per passo).
-     * Qui non si sa di che tipo è l'ostacolo: che cosa fa il colpo lo decide l'ostacolo.
-     */
     private void controllaOstacoli() {
         Ostacolo colpito = ostacoli.ostacoloCheTocca(palla.getArea());
         if (colpito != null) {
@@ -132,14 +189,15 @@ class Partita {
         double x = palla.getPosizione().x();
         if (x < 0) {
             punteggio.segnaPunto(Lato.DESTRA);
+            registraRisultato();
             dopoIlPunto(true);
         } else if (x > campo.getLarghezza()) {
             punteggio.segnaPunto(Lato.SINISTRA);
+            registraRisultato();
             dopoIlPunto(false);
         }
     }
 
-    /** Dopo un punto: se la partita non è finita si serve verso chi ha subito il punto, altrimenti la palla si ferma. */
     private void dopoIlPunto(boolean versoSinistra) {
         if (punteggio.isFinita()) {
             palla.fermaIn(campo.getLarghezza() / 2.0, campo.getAltezza() / 2.0);
